@@ -4,9 +4,10 @@
 // @version      0.1
 // @description  try to take over the world!
 // @author       You
-// @match        https://www.pixiv.net/member_illust.php?mode=medium&illust_id=*
+// @include        https://www.pixiv.net/member_illust.php?mode=medium&illust_id=*
+// @include       https://www.pixiv.net/member_illust.php?id=*
 // @grant        none
-// @require    http://code.jquery.com/jquery-1.11.0.min.js
+// @require    https://cdn.bootcss.com/jslite/1.1.12/JSLite.min.js
 // @require    https://unpkg.com/lodash@4/lodash.min.js
 // @require    https://unpkg.com/lowdb@0.17/dist/low.min.js
 // @require    https://unpkg.com/lowdb@0.17/dist/LocalStorage.min.js
@@ -16,55 +17,87 @@
   var db = low(adapter);
   db.defaults({ pixivs: [] }).write();
 
-  saveInfo(); //直接触发
-  $('.js-nice-button').on('click', saveInfo);
+  var isIllustPage = window.location.href.indexOf('illust_id') > -1;
+  
   $(document).keydown(function (e) {
-    if (e.keyCode === 76) {
-      saveInfo();
-    }
-  });
-  $(document).keypress(function (e) {
-    if (e.shiftKey && e.keyCode == 68) {
+    if (e.shiftKey && e.keyCode === 68) {
       downLoadAllPixivData();
     }
   });
 
-  function saveInfo() {
+  toast('','')
+
+  if(isIllustPage){
+    //图片页
     var illustId = pixiv.context.illustId;
-    if (illustId) {
-      if (checkExist(illustId)) {
-        var model = info(illustId);
-        if (model) {
-          save(model);
+    saveForIllustPage(illustId); //直接触发
+    $('.js-nice-button').on('click', saveForIllustPage);
+
+    $(document).keydown(function (e) {
+      if (e.keyCode === 76) {
+        saveForIllustPage(illustId);
+      }
+    });
+  }else{
+    //作品页
+    console.log('member page');
+    saveForMemberPage();
+  }
+
+  /**
+   * 作品页的保存
+   */
+  function saveForMemberPage(){
+    var authorName = $('.profile').find('.user-name').text();
+    var msgs = [];
+    $('._image-items').find('.image-item').each((i,li) => {
+      var $img = $(li).find('._layout-thumbnail img');
+      var tags = $img.data('tags').split(' ');
+      var illustId = "" + $img.data('id');
+      if(checkExist(illustId)){
+        console.log("Ignored:"+illustId);
+        msgs.push('IGNORED:[' + illustId + ']');
+      } else {
+        var model = {
+          id: illustId,
+          title: $(li).find('.title').text(),
+          date: new Date(),
+          tags: tags,
+          author: authorName,
+          authorId: $img.data('user-id'),
+        };
+        if(save(model)){
+          console.log("SAVED:"+JSON.stringify(model));
+          msgs.push('SAVED:[' + model.id + ']');
         }
+      }
+    });
+    toast('' , JSON.stringify(msgs,undefined,2));
+  }
+
+  /**
+   * 图片页的保存
+   */
+  function saveForIllustPage(illustId) {
+    if (illustId) {
+      var exists = checkExist(illustId);
+      if (exists) {
+          toast('IGNORED', JSON.stringify(exists,undefined, 2));
+        }else{
+          var model = infoForIllustPage(illustId);
+          if (model && save(model)) {
+            toast('SAVED' , JSON.stringify(model,undefined, 2));
+          }
       }
     }
   }
 
-  function checkExist(illustId) {
-    if (db.get('pixivs').find({ id: model.id }).size().value() > 0) {
-      console.log('existed,so ingore');
-      showMsg('existed,so IGNORE <br/>' + json);
-      return false;
-    }
-    return true;
-  }
-
-  function save(model) {
-    var json = JSON.stringify(model);
-    console.log(json);
-    // Set some defaults
-    db.get('pixivs').push(model).write();
-    console.log('saved');
-    showMsg('SAVED<br/>' + json);
-  }
-
-  function info(id) {
+  function infoForIllustPage(id) {
     var context = pixiv.context;
     var model = {
       id: id,
       title: context.illustTitle,
-      date: '',
+      date: new Date(),
       tags: [],
       author: context.userId,
       authorId: context.userName,
@@ -72,10 +105,6 @@
     var workInfo = $('.work-info');
     //title
     //var title = workInfo.find('.title').text();
-
-    //date
-    var date = workInfo.find('ul.meta').children().first().text();
-    model.date = date;
 
     //tags
     var liTags = $('ul.tags').find('li');
@@ -97,6 +126,25 @@
     return model;
   }
 
+  /**
+   * if exists return the value else return false
+   */
+  function checkExist(illustId) {
+    var existed = db.get('pixivs').find({ id: illustId }).value();
+    if (existed) {
+      console.log('existed,so ingore');
+      return existed;
+    }
+    return false;
+  }
+
+  function save(model) {
+    db.get('pixivs').push(model).write();
+    console.log('saved');
+    return true;
+  }
+
+
   function showAllPixivData() {
     var data = db.get('pixivs').value();
     console.log(data);
@@ -111,13 +159,12 @@
 
   function downLoadAllPixivData() {
     var data = db.get('pixivs').value();
-    downloadFile(dbName + '.json', JSON.stringify(data));
+    downloadFile(new Date().toLocaleDateString() + '.json', JSON.stringify(data ,undefined, 2));
   }
 
   window.showAllPixivData = showAllPixivData;
   window.removeAllPixivData = removeAllPixivData;
   window.downLoadAllPixivData = downLoadAllPixivData;
-
 
   function downloadFile(fileName, content) {
     console.log(content);
@@ -132,35 +179,40 @@
   }
 
   // ******************** toast *******************//
-  //tip是提示信息，type:'success'是成功信息，'danger'是失败信息,'info'是普通信息,'warning'是警告信息
-  function showTip(tip, type) {
-    type = type ? type : 'info';
-    var $tip = $('#myTip');
+  function toast(header,body) {
+    var $tip = $('#tip');
     if ($tip.length === 0) {
-      $tip = $('<strong id="tip" style="position:absolute;padding:5px 2px;top:10px;right: 10px;border:solid 0.5px #150101;background-color:#d6d6d6;max-width:500px;z-index:9999"></strong>');
+      $tip = $('<div id="tip" style="position:fixed;font-size:15px;padding:8px;top:10px;left: 10px;border:solid 0.5px #150101;background-color:#d6d6d6;z-index:9999"></div>');
+      $tip.append($('<strong></strong>'));
+
+
+      var $bodyPre = $('<pre></pre>');
+      $bodyPre.on('click',()=>{
+        if($tip.css('left')){
+          $tip.css('left',undefined);
+          $tip.css('right','10px');
+        }else{
+          $tip.css('left','10px');
+          $tip.css('right',undefined);
+        }
+
+      });
+      $tip.append($bodyPre);
+
+      var $dlBtn = $('<button style="width: 75px;height: 25px;margin-right: 10px;">info</button>');
+      $dlBtn.off('click').on('click',downLoadAllPixivData);
+      $tip.append($dlBtn);
+
+      var $closeBtn = $('<button style="width: 75px;height: 25px;margin-right: 10px;">close</button>');
+      $closeBtn.off('click').on('click',()=>{
+        $('#tip').remove();
+      });
+      $tip.append($closeBtn);
+
       $('body').append($tip);
     }
-    $tip.stop(true).prop('class', 'alert alert-' + type).text(tip).css('margin-left', -$tip.outerWidth() / 2).fadeIn(500).delay(2000).fadeOut(500);
+    $tip.find('strong').text(header).show();
+    $tip.find('pre').text(body).show();
   }
 
-  function showMsg(msg) {
-    showTip(msg, 'info');
-  }
-
-  function showSuccess(msg) {
-    showTip(msg, 'success');
-  }
-
-  function ShowFailure(msg) {
-    showTip(msg, 'danger');
-  }
-
-  function showWarn(msg, $focus, clear) {
-    showTip(msg, 'warning');
-    if ($focus) {
-      $focus.focus();
-      if (clear) $focus.val('');
-    }
-    return false;
-  }
 })();

@@ -159,7 +159,7 @@
 
   function downLoadAllPixivData() {
     var data = db.get('pixivs').value();
-    downloadFile(new Date().toLocaleDateString() + '.json', JSON.stringify(data ,undefined, 2));
+    downloadFile(new Date().toLocaleDateString() + '.json', JSON.stringify({pixiv:data} ,undefined, 2));
   }
 
   window.showAllPixivData = showAllPixivData;

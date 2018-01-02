@@ -63,7 +63,7 @@
         var model = {
           id: illustId,
           title: $(li).find('.title').text(),
-          date: new Date(),
+          date: new Date().getTime(),
           tags: tags,
           author: authorName,
           authorId: $img.data('user-id'),
@@ -99,10 +99,10 @@
     var model = {
       id: id,
       title: context.illustTitle,
-      date: new Date(),
+      date: new Date().getTime(),
       tags: [],
-      author: context.userId,
-      authorId: context.userName,
+      author: context.userName,
+      authorId: context.userId,
     };
     var workInfo = $('.work-info');
     //title

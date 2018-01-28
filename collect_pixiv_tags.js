@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Collect Tags [Pixiv]
 // @namespace    http://tampermonkey.net/
-// @version      0.1
-// @description  try to take over the world!
+// @version      0.2
+// @description  collect pixiv tags to json
 // @author       You
 // @include        https://www.pixiv.net/member_illust.php?mode=medium&illust_id=*
 // @include       https://www.pixiv.net/member_illust.php?id=*
@@ -101,8 +101,8 @@
       title: context.illustTitle,
       date: new Date(),
       tags: [],
-      author: context.userId,
-      authorId: context.userName,
+      author: context.userName,
+      authorId: context.userId,
     };
     var workInfo = $('.work-info');
     //title

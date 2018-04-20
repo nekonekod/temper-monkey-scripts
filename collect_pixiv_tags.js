@@ -13,6 +13,8 @@
 // @require    https://unpkg.com/lowdb@0.17/dist/LocalStorage.min.js
 // ==/UserScript==
 (function () {
+  var DELAY = 3000
+
   var adapter = new LocalStorage('pixivDB');
   var db = low(adapter);
   db.defaults({ pixivs: [] }).write();
@@ -25,21 +27,24 @@
     }
   });
 
-  toast('', '')
-
   if (isIllustPage) {
     //图片页
-    var illustId = pixiv.context.illustId;
-    saveForIllustPage(illustId); //直接触发
+    console.log('illust page');
+
     $('.js-nice-button').on('click', function () {
-      saveForIllustPage(illustId)
+      saveForIllustPage()
     });
 
     $(document).keydown(function (e) {
       if (e.keyCode === 76) {
-        saveForIllustPage(illustId);
+        saveForIllustPage();
       }
     });
+    setTimeout(function(){
+      saveForIllustPage(); //直接触发
+
+    },DELAY)
+    
   } else {
     //作品页
     console.log('member page');
@@ -81,62 +86,42 @@
    * 图片页的保存
    */
   function saveForIllustPage(illustId) {
-    if (illustId) {
-      var exists = removeExist(illustId);
-      if (exists) {
-        toast('IGNORED', JSON.stringify(exists, undefined, 2));
-      } else {
-        var model = infoForIllustPage(illustId);
-        if (model && save(model)) {
-          toast('SAVED', JSON.stringify(model, undefined, 2));
-        }
-      }
-    }
-  }
-
-  function infoForIllustPage(id) {
-    var context = pixiv.context;
     var model = {
-      id: id,
-      title: context.illustTitle,
       date: new Date().getTime(),
-      tags: [],
-      author: context.userName,
-      authorId: context.userId,
     };
-    var workInfo = $('.work-info');
+    //id
+    var id = location.href.split('illust_id=')[1];
+    model.id = id
+
+    if(!id){
+      console.log('no id')
+      return 
+    }
+
     //title
-    //var title = workInfo.find('.title').text();
+    var title = $('.TTmQ_bQ').text();
+    model.title = title
 
     //tags
-    var liTags = $('ul.tags').find('li');
+    var liTags = $('._3F75o7a').find('li');
     var tags = [];
     liTags.each((i, li) => {
-      var text = $(li).find('a.text').text();
-      tags.push(text);
+      var text = $(li).text();
+      if(text) tags.push(text);
     });
+    model.tags = tags
+
     //author
-    //var profile = $('div.profile');
-    //var userLink = profile.find('a.user-name');
-    //var author = userLink.text();
-    //var authorId = userLink.href().split('?id=')[1]
+    var author = $('.JdrBYtD a').text();
+    var authorId = $('.JdrBYtD a').attr('href').split('?id=')[1]
+    model.author = author
+    model.authorId = authorId
 
-    //id
-    //var id = pixiv.context.illustId;
-    model.tags = tags;
-
-    return model;
-  }
-
-  /**
-   * if exists, delete orig
-   */
-  function removeExist(illustId) {
-    var existed = db.get('pixivs').remove({ id: illustId }).value();
-    if (existed) {
-      console.log('remove exist:' + JSON.stringify(existed));
+    
+    if (model && save(model)) {
+      toast('SAVED', JSON.stringify(model, undefined, 2));
     }
-    return false;
+
   }
 
   //处理脏数据
@@ -146,6 +131,10 @@
   // console.log(wrongs)
 
   function save(model) {
+    var existed = db.get('pixivs').remove({ id: model.id }).value();
+    if (existed) {
+      console.log('remove exist:' + JSON.stringify(existed));
+    }
     db.get('pixivs').push(model).write();
     console.log('saved');
     return true;
@@ -192,35 +181,27 @@
   function toast(header, body) {
     var $tip = $('#tip');
     if ($tip.length === 0) {
-      $tip = $('<div id="tip" style="position:fixed;font-size:15px;padding:8px;top:10px;left: 10px;border:solid 0.5px #150101;background-color:#d6d6d6;z-index:9999"></div>');
-      $tip.append($('<strong></strong>'));
 
+      $tip = $('<div id="tip" style="position:fixed;font-size:12px;padding:8px;bottom:10px;left: 10px;border:solid 0.5px #150101;background-color:rgba(0,0,0,0.3);z-index:9999"></div>');
 
-      $tip.append($('<pre></pre>'));
-
-      var $dlBtn = $('<button style="width: 75px;height: 25px;margin-right: 10px;">info</button>');
-      $dlBtn.off('click').on('click', downLoadAllPixivData);
-      $tip.append($dlBtn);
-
-      var $closeBtn = $('<button style="width: 75px;height: 25px;margin-right: 10px;">close</button>');
+      var $closeBtn = $('<button style="width: 25px;height: 25px;float: right; margin-left: 10px;"> - </button>');
       $closeBtn.off('click').on('click', () => {
-        $('#tip').remove();
+        $('#tip pre').toggle();
       });
+
+      var $dlBtn = $('<button style="width: 25px;height: 25px;float: right;margin-left: 10px;"> D </button>');
+      $dlBtn.off('click').on('click', downLoadAllPixivData);
+
+      $tip.append($dlBtn);
       $tip.append($closeBtn);
 
+  
+      $tip.append($('<pre style="max-height:700px;overflow:y;"></pre>'));
+ 
       $('body').append($tip);
     }
-    var $header = $tip.find('strong').text('<' + header + '>');
-    $header.off('click').on('click', () => {
-      if ($tip.css('left')) {
-        $tip.css('left', undefined);
-        $tip.css('right', '10px');
-      } else {
-        $tip.css('left', '10px');
-        $tip.css('right', undefined);
-      }
-    }).show();
     $tip.find('pre').text(body).show();
+   
   }
 
 })();

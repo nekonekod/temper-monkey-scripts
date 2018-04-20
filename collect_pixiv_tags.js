@@ -61,22 +61,17 @@
       var $img = $(li).find('._layout-thumbnail img');
       var tags = $img.data('tags').split(' ');
       var illustId = "" + $img.data('id');
-      if (removeExist(illustId)) {
-        console.log("Ignored:" + illustId);
-        msgs.push('IGNORED:[' + illustId + ']');
-      } else {
-        var model = {
-          id: illustId,
-          title: $(li).find('.title').text(),
-          date: new Date().getTime(),
-          tags: tags,
-          author: authorName,
-          authorId: $img.data('user-id'),
-        };
-        if (save(model)) {
-          console.log("SAVED:" + JSON.stringify(model));
-          msgs.push('SAVED:[' + model.id + ']');
-        }
+      var model = {
+        id: illustId,
+        title: $(li).find('.title').text(),
+        date: new Date().getTime(),
+        tags: tags,
+        author: authorName,
+        authorId: $img.data('user-id'),
+      };
+      if (save(model)) {
+        console.log("SAVED:" + JSON.stringify(model));
+        msgs.push('SAVED:[' + model.id + ']');
       }
     });
     toast('', JSON.stringify(msgs, undefined, 2));

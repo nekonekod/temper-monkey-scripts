@@ -98,7 +98,7 @@
     model.title = title
 
     //tags
-    var liTags = $('._3F75o7a').find('li');
+    var liTags = $('.footer ul li');
     var tags = [];
     liTags.each((i, li) => {
       var text = $(li).text();
